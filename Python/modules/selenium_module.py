@@ -15,6 +15,10 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import cv2
+import numpy as np
+import time
+
 try:
     from ssl import CertificateError as sslerr
 except ImportError:
@@ -275,7 +279,22 @@ def capture_host(cli_parsed, http_object, driver, ua=None):
             
         safe_filename = sanitize_filename(http_object.remote_system)
         screenshot_path = Path(cli_parsed.d) / 'screens' / f'{safe_filename}.png'
-        driver.save_screenshot(str(screenshot_path))
+
+
+        try:
+            driver.save_screenshot(http_object.screenshot_path)
+            if np.mean(cv2.imread(http_object.screenshot_path)) == 255:
+                print ('----->Image is empty.  Waiting and trying again')
+                time.sleep(3)
+                driver.save_screenshot(http_object.screenshot_path)
+            else:
+                print ('image was not empty')
+        except Exception as e:
+            print(f'[!] Warning: failed to save screenshot for {http_object.remote_system}: {e}')
+            # Save blank image as fallback
+            blank_image = np.ones((1080, 1920, 3), dtype=np.uint8) * 255
+            cv2.imwrite(str(screenshot_path), blank_image)
+        
         http_object.screenshot_path = str(screenshot_path)
         
         print(f'[+] Captured screenshot: {http_object.remote_system}')
